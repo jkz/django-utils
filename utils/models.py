@@ -158,10 +158,24 @@ class RequestQuerySet(m.query.QuerySet, PaginatorMixin, TimestampMixin):
 
 class ExternalManager(m.Manager):
     def put(self, **data):
-        #TODO Handle related fields (probably filter them out)
+        # Handle non-relational fields
         fields = dict((key, val) for key, val in data.items()
-                if key in (field.name for field in self.model._meta.fields))
+                if key in (field.name for field in self.model._meta.fields if
+                    type(field) != m.fields.related.ForeignKey))
         obj = self.model(**fields)
+
+        # Handle relational fields
+        #XXX: only foreign key's at the moment
+        for name in (field.name for field in self.model._meta.fields if
+                type(field) == m.fields.related.ForeignKey):
+            # Add relation by object
+            if name in data:
+                setattr(obj, name, data[name])
+            # Add relation by object_id
+            else:
+                name = name + '_id'
+                if name in data:
+                    setattr(obj, name, data[name])
         obj.save()
         return obj
 
