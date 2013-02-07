@@ -159,6 +159,8 @@ class RequestQuerySet(m.query.QuerySet, PaginatorMixin, TimestampMixin):
 class ExternalManager(m.Manager):
     def put(self, **data):
         # Handle non-relational fields
+        #XXX: stuff like timestamp conversion should be taken care of by
+        #     a validation function
         fields = dict((key, val) for key, val in data.items()
                 if key in (field.name for field in self.model._meta.fields if
                     type(field) != m.fields.related.ForeignKey))
@@ -176,10 +178,8 @@ class ExternalManager(m.Manager):
                     setattr(obj, name, data[name])
                 except KeyError:
                     pass
-        try:
-            obj.save()
-        except Exception as e:
-            print e
+
+        obj.save()
         return obj
 
 
