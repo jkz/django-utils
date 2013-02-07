@@ -165,18 +165,21 @@ class ExternalManager(m.Manager):
         obj = self.model(**fields)
 
         # Handle relational fields
-        #XXX: only foreign key's at the moment
+        #XXX: only foreign keys at the moment
         for name in (field.name for field in self.model._meta.fields if
                 type(field) == m.fields.related.ForeignKey):
-            # Add relation by object
-            if name in data:
+            try:
                 setattr(obj, name, data[name])
-            # Add relation by object_id
-            else:
-                name = name + '_id'
-                if name in data:
+            except KeyError:
+                try:
+                    name = name + '_id'
                     setattr(obj, name, data[name])
-        obj.save()
+                except KeyError:
+                    pass
+        try:
+            obj.save()
+        except Exception as e:
+            print e
         return obj
 
 
