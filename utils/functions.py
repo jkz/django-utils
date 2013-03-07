@@ -66,3 +66,16 @@ def list_modules(package):
     prefix = package.__name__ + '.'
     for importer, modname, ispkg in pkgutil.iter_modules(package.__path__, prefix):
         __import__(modname, fromlist="dummy")
+
+def getattr_recursive(obj, attr, *default):
+    attr, dot, rest = attr.partition('.')
+    try:
+        val = getattr(obj, attr)
+    except AttributeError:
+        if len(default):
+            return default[0]
+        raise
+
+    if not rest:
+        return val
+    return getattr_recursive(val, rest, *default)
