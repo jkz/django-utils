@@ -1,24 +1,28 @@
 from django.db import models as m
-from django.db.models.query import QuerySet
 
-class PolyModel:
-    def proxy(self, proxy_cls):
-        proxy_obj = proxy_cls()
-        proxy_obj.__dict__ = self.__dict__
-        return proxy_obj
+class QuerySetMixin:
+    """
+    Some basic queryset convenience methods
+    """
+    def get_or_none(self, **kwargs):
+        try:
+            return self.get(**kwargs)
+        except self.model.DoesNotExist:
+            return None
 
-class FilterManager(m.Manager):
-    def __init__(self, *args, **kwargs):
-        super(FilterManager, self).__init__()
-        self.args = args
-        self.kwargs = kwargs
-
-    def get_query_set(self):
-        return super(FilterManager, self).get_query_set() \
-                .filter(*self.args, **self.kwargs)
+class Manager(m.Manager, QuerySetMixin):
+    pass
 
 
-class QuerySetManager(m.Manager):
+# QuerySetModel attempts to provide chainable custom methods. The manager looks
+# for a class named 'QuerySet' (which  should inherit from its nametwin) on its
+# model and defaults to the one below.
+from django.db.models import query
+
+class QuerySet(query.QuerySet, QuerySetMixin):
+    pass
+
+class QuerySetManager(Manager):
     use_for_related_fields = True
 
     def get_query_set(self):
@@ -37,8 +41,30 @@ class QuerySetModel(m.Model):
     class Meta:
         abstract = True
 
-    class QuerySet(QuerySet):
-        pass
+
+
+class PolyModel:
+    def proxy(self, proxy_cls):
+        proxy_obj = proxy_cls()
+        proxy_obj.__dict__ = self.__dict__
+        return proxy_obj
+
+class FilterManager(Manager):
+    def __init__(self, **kwargs):
+        super(FilterManager, self).__init__()
+        self.kwargs = kwargs
+
+    def get_query_set(self):
+        return super(FilterManager, self).get_query_set().filter(**self.kwargs)
+
+class ExcludeManager(Manager):
+    def __init__(self, **kwargs):
+        super(ExcludeManager, self).__init__()
+        self.kwargs = kwargs
+
+    def get_query_set(self):
+        return super(ExcludeManager, self).get_query_set().exclude(**self.kwargs)
+
 
 
 from django.core.exceptions import MultipleObjectsReturned
@@ -61,9 +87,9 @@ class VerifyUniqueMixin:
 class MapFilterMixin:
     def map_filter(self, template='%s', callback=lambda x: x, **kwargs):
         """
-        Map a callback function on each value of the kwargs dict. Replace the
-        keys by inserting them in a template. Finally filter with the new
-        key, value pairs as arguments.
+        Map a callback function on each value of the kwargs dict.
+        Replace the keys by inserting them in a template.
+        Finally filter with the new (key, value) pairs as arguments.
         """
         return self.filter(**dict((template % key, callback(val))
                 for key, val in kwargs.items()))
@@ -73,14 +99,18 @@ class PaginatorMixin:
         return self.all()[offset:offset + limit]
 
 class TimestampMixin(MapFilterMixin):
+    def timestamp_parser(self, obj):
+        """Override this method for custom timestamp parsing. Should raise a
+        ValueError on failure."""
+        return datetime.strptime(obj, 'format')
+
     def _to_timestamp(self, obj):
         from datetime import datetime
         if isinstance(obj, datetime):
             return obj
 
-        #XXX decide on parsing methods
         try:
-            return datetime.strptime(obj, 'format')
+            return self.timestamp_parser(obj)
         except ValueError:
             pass
 
@@ -156,7 +186,11 @@ class RequestQuerySet(m.query.QuerySet, PaginatorMixin, TimestampMixin):
         return qs.paginate(**pagination)
 
 
-class ExternalManager(m.Manager):
+
+# External models are reproductions of models from other services. (e.g.
+# Twitter status, Facebook User). The manager provides a convenience method
+# for importing.
+class ExternalManager(Manager):
     def put(self, **data):
         # Handle non-relational fields
         #XXX: stuff like timestamp conversion should be taken care of by
@@ -184,7 +218,7 @@ class ExternalManager(m.Manager):
 
 
 class ExternalModel(m.Model):
-    objects = m.Manager()
+    objects = Manager()
     importer = ExternalManager()
 
     class Meta:

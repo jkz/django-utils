@@ -31,4 +31,3 @@ class TimestampField(m.DateTimeField):
         return getattr(model_instance, self.attname)
     '''
 
-

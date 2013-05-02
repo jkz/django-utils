@@ -1,7 +1,14 @@
 import datetime
 import string
+import fnmatch
 
 from django.utils.http import urlencode
+
+class glob_list(list):
+    def __contains__(self, key):
+        for elt in self:
+            if fnmatch.fnmatch(key, elt): return True
+        return False
 
 def url_append_querystring(url, query):
     return '%s?%s' % (url, urlencode(query))
