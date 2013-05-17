@@ -13,11 +13,11 @@ def r(regex):
         if grp.startswith('(?'):
             return grp
         else:
-            return r'(?P<{}>[^/]+)'.format(match.group(0)[1:])
+            return r'(?P<{}>[^/]+)'.format(match.group(0).lstrip(':'))
     regex = re.sub(r'((?:\(\?|):[a-zA-Z_][a-zA-Z_0-9]*)', name_repl, regex)
 
     def number_repl(match):
-        return r'(?P<{}>[0-9]+)'.format(match.group(0)[1:])
+        return r'(?P<{}>[0-9]+)'.format(match.group(0).lstrip('#'))
     regex = re.sub(r'#([a-zA-Z_][a-zA-Z_0-9]*)', number_repl, regex)
 
     return regex
