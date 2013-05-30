@@ -224,3 +224,22 @@ class ExternalModel(m.Model):
     class Meta:
         abstract = True
 
+
+class CustomUser(m.Model):
+    """
+    The barebones implementation of Django custom models.
+    """
+    class Meta:
+        abstract = True
+
+    USERNAME_FIELD = NotImplemented
+    REQUIRED_FIELDS = []
+
+    is_active = True
+
+    def get_full_name(self):
+        return str(self)
+
+    def get_short_name(self):
+        return self.get_full_name()
+
