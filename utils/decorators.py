@@ -49,7 +49,7 @@ def shoutout(func):
         __ += '    '
         try:
             ret = func(*args, **kwargs)
-        except Exception, e:
+        except Exception as e:
             _p(e)
             raise e
         __ = __[:-4]
@@ -62,7 +62,7 @@ def html_view(func):
     def funk(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except StatusError, e:
+        except StatusError as e:
             return HttpResponse(str(e))
     return funk
 
@@ -75,7 +75,7 @@ def json_view(func):
     def funk(*args, **kwargs):
         try:
             return JsonResponse(response_data('success', *func(*args, **kwargs)))
-        except StatusError, e:
+        except StatusError as e:
             return JsonResponse(response_data(**e.data()))
     return funk
 
