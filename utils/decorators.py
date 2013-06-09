@@ -39,7 +39,7 @@ def shoutout(func):
     def _func(*args, **kwargs):
         global __
         def _p(s):
-            print __ + str(s)
+            print(__ + str(s))
         _p('%s.%s(' % (func.__module__, func.__name__))
         for arg in args:
             _p('  %s' % str(arg))
