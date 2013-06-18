@@ -29,7 +29,11 @@ def facebook_share(context, url=None, title=None, summary=None, images=None):
     if summary:
         query['p[summary]'] = title
     if images:
-        if isinstance(images, basestring):
+        try:
+            string_types = basestring
+        except NameError:
+            string_types = str
+        if isinstance(images, string_types):
             images = [images]
         for idx, image in enumerate(images):
             query['p[images][%s]' % idx] = image
