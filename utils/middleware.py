@@ -7,3 +7,6 @@ class SubdomainMiddleware:
         if len(host_s) > 2:
             request.subdomain = '.'.join(host_s[:-2])
 
+class DisableCSRF:
+    def process_request(self, request):
+        setattr(request, '_dont_enforce_csrf_checks', True)

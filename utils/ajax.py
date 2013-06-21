@@ -1,6 +1,6 @@
 from django.http import HttpResponse
 
-ACC_HEADERS = {'Access-Control-Allow-Origin': '*', 
+ACC_HEADERS = {'Access-Control-Allow-Origin': '*',
                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
                'Access-Control-Max-Age': 1000,
                'Access-Control-Allow-Headers': '*'}
@@ -9,7 +9,7 @@ def cross_domain_ajax(func):
     """ Sets Access Control request headers."""
     def wrap(request, *args, **kwargs):
         # Firefox sends 'OPTIONS' request for cross-domain javascript call.
-        if request.method != "OPTIONS": 
+        if request.method != "OPTIONS":
             response = func(request, *args, **kwargs)
         else:
             response = HttpResponse()
@@ -36,14 +36,14 @@ try:
 except AttributeError:
     XS_SHARING_ALLOWED_ORIGINS = '*'
     XS_SHARING_ALLOWED_METHODS = ['POST', 'GET', 'OPTIONS', 'PUT', 'DELETE']
-    XS_SHARING_ALLOWED_HEADERS = ['Content-Type', '*']
+    XS_SHARING_ALLOWED_HEADERS = ['Content-Type', '*', 'X-Requested-With']
     XS_SHARING_ALLOWED_CREDENTIALS = 'true'
 
 
-class _CrossDomainAjaxMiddleware(object):
+class CrossDomainAjaxMiddleware(object):
     """
     This middleware allows cross-domain XHR using the html5 postMessage API.
-     
+
     Access-Control-Allow-Origin: http://foo.example
     Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT, DELETE
 
@@ -52,8 +52,8 @@ class _CrossDomainAjaxMiddleware(object):
     def process_request(self, request):
         if 'HTTP_ACCESS_CONTROL_REQUEST_METHOD' in request.META:
             response = http.HttpResponse()
-            response['Access-Control-Allow-Origin']  = XS_SHARING_ALLOWED_ORIGINS 
-            response['Access-Control-Allow-Methods'] = ",".join( XS_SHARING_ALLOWED_METHODS ) 
+            response['Access-Control-Allow-Origin']  = XS_SHARING_ALLOWED_ORIGINS
+            response['Access-Control-Allow-Methods'] = ",".join( XS_SHARING_ALLOWED_METHODS )
             response['Access-Control-Allow-Headers'] = ",".join( XS_SHARING_ALLOWED_HEADERS )
             response['Access-Control-Allow-Credentials'] = XS_SHARING_ALLOWED_CREDENTIALS
             return response
@@ -61,7 +61,7 @@ class _CrossDomainAjaxMiddleware(object):
         return None
 
     def process_response(self, request, response):
-        response['Access-Control-Allow-Origin']  = XS_SHARING_ALLOWED_ORIGINS 
+        response['Access-Control-Allow-Origin']  = XS_SHARING_ALLOWED_ORIGINS
         response['Access-Control-Allow-Methods'] = ",".join( XS_SHARING_ALLOWED_METHODS )
         response['Access-Control-Allow-Headers'] = ",".join( XS_SHARING_ALLOWED_HEADERS )
         response['Access-Control-Allow-Credentials'] = XS_SHARING_ALLOWED_CREDENTIALS
@@ -71,19 +71,17 @@ class _CrossDomainAjaxMiddleware(object):
 
 
 try:
-    import settings 
+    from django.conf import settings
     XS_SHARING_ALLOWED_ORIGINS = settings.XS_SHARING_ALLOWED_ORIGINS
     XS_SHARING_ALLOWED_METHODS = settings.XS_SHARING_ALLOWED_METHODS
 except:
     XS_SHARING_ALLOWED_ORIGINS = '*'
     XS_SHARING_ALLOWED_METHODS = ['POST','GET','OPTIONS', 'PUT', 'DELETE']
 
-XS_SHARING_ALLOWED_ORIGINS = 'http://jessethegame.net'
-
-class CrossDomainAjaxMiddleware(object):
+class _CrossDomainAjaxMiddleware(object):
     """
         This middleware allows cross-domain XHR using the html5 postMessage API.
-         
+
 
         Access-Control-Allow-Origin: http://foo.example
         Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT, DELETE
@@ -92,9 +90,9 @@ class CrossDomainAjaxMiddleware(object):
 
         if 'HTTP_ACCESS_CONTROL_REQUEST_METHOD' in request.META:
             response = http.HttpResponse()
-            response['Access-Control-Allow-Origin']  = XS_SHARING_ALLOWED_ORIGINS 
-            response['Access-Control-Allow-Methods'] = ",".join( XS_SHARING_ALLOWED_METHODS ) 
-            
+            response['Access-Control-Allow-Origin']  = XS_SHARING_ALLOWED_ORIGINS
+            response['Access-Control-Allow-Methods'] = ",".join( XS_SHARING_ALLOWED_METHODS )
+
             return response
 
         return None
@@ -104,7 +102,7 @@ class CrossDomainAjaxMiddleware(object):
         if response.has_header('Access-Control-Allow-Origin'):
             return response
 
-        response['Access-Control-Allow-Origin']  = XS_SHARING_ALLOWED_ORIGINS 
+        response['Access-Control-Allow-Origin']  = XS_SHARING_ALLOWED_ORIGINS
         response['Access-Control-Allow-Methods'] = ",".join( XS_SHARING_ALLOWED_METHODS )
 
         return response
