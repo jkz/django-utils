@@ -3,7 +3,6 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.conf import settings
 from django.shortcuts import redirect
 
-from .errors import StatusError
 from .jsons import JsonResponse
 
 def model__getattr__(func):
@@ -33,7 +32,7 @@ def shoutout(func):
     Prints the function name, passed arguments and return value when VERBOSE
     setting is true.
     """
-    if not settings.VERBOSE:
+    if not getattr(settings, 'VERBOSE'):
         return func
     @wraps(func)
     def _func(*args, **kwargs):
@@ -57,32 +56,28 @@ def shoutout(func):
         return ret
     return _func
 
-def html_view(func):
+def to_text(func):
+    """
+    Wraps decorated function's return value in an HttpResponse
+    """
     @wraps(func)
     def funk(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except StatusError as e:
-            return HttpResponse(str(e))
-    return funk
-
-def response_data(code=None, source=None, message=None, data={}):
-     data['status'] = {'code': code, 'source': source, 'message': message}
-     return data
-
-def json_view(func):
-    @wraps(func)
-    def funk(*args, **kwargs):
-        try:
-            return JsonResponse(response_data('success', *func(*args, **kwargs)))
-        except StatusError as e:
-            return JsonResponse(response_data(**e.data()))
+        response = func(*args, **kwargs)
+        if isinstance(response, HttpResponse):
+            return response
+        return HttpResponse(response)
     return funk
 
 def to_json(func):
+    """
+    Wrap decorated function's return value in a JsonResponse
+    """
     @wraps(func)
     def funk(*args, **kwargs):
-        return JsonResponse(func(*args, **kwargs))
+        response = func(*args, **kwargs)
+        if isinstance(response, HttpResponse):
+            return response
+        return JsonResponse(response)
     return funk
 
 def receiver(*args, **kwargs):
@@ -113,21 +108,15 @@ def created_receiver(model, **kwargs):
     return wrap
 
 
-def require_key(field, key, message):
+def require_key(container, key, message):
+    """
+    Require a key from a container on the request object and pass it as
+    a keyword argument to the decorated function.
+    """
     def wrap(func):
         @wraps(func)
         def funk(request, *args, **kwargs):
-            dic = getattr(request, field, None)
-            if dic is None:
-                raise StatusError('request', "No %s in request" % field)
-            kwargs[key] = dic[key]
-            '''
-            try:
-                kwargs[key] = dic[key]
-            except KeyError, e:
-                raise StatusError(key, e)
-                raise StatusError('request', str(request)) raise StatusError('request', "%s missing in request.%s" % (key, field))
-            '''
+            kwargs[key] = getattr(request, container)[key]
             return func(request, *args, **kwargs)
         return funk
     return wrap
@@ -144,37 +133,57 @@ def require_session(*a, **kw):
     return require_key('session', *a, **kw)
 
 
+def default_key(field, key, default=None):
+    """
+    Provide a key from a container on the request object and pass it as a
+    keyword argument to decorated function. If the key is missing, pass the
+    default value in stead.
+    """
+    def wrap(func):
+        @wraps(func)
+        def funk(request, *args, **kwargs):
+            kwargs[key] = getattr(request, field, {}).get(key, default)
+            return func(request, *args, **kwargs)
+        return funk
+    return wrap
+
+def default_meta(*a, **kw):
+    return require_key('META', *a, **kw)
+def default_get(*a, **kw):
+    return require_key('GET', *a, **kw)
+def default_post(*a, **kw):
+    return require_key('POST', *a, **kw)
+def default_request(*a, **kw):
+    return require_key('REQUEST', *a, **kw)
+def default_session(*a, **kw):
+    return require_key('session', *a, **kw)
+
+
+
 def renders_to(template=None):
+    """
+    The return dictionary from the decorated function is passed to the
+    given template as context, together with the default request context.
+    When function returns a HttpResponse, that response is returned in stead.
+    When function returns two arguments, the second is the template.
+    """
     from django.shortcuts import render_to_response
     from django.template import RequestContext
     def wrap(func):
         @wraps(func)
         def funk(request, *args, **kwargs):
             data = func(request, *args, **kwargs)
+
             if isinstance(data, HttpResponse):
                 return data
-            elif data and 'template' in data:
-                _template = data['template']
-            else:
-                _template = template
+            if not hasattr(data, 'get'):
+                try:
+                    data, _template = data
+                except TypeError:
+                    _template = template
             return render_to_response(_template, data, RequestContext(request))
         return funk
     return wrap
-
-def redirects_to(default=None):
-    """
-    Returns a reponse redirect to the function return value, else given
-    default.
-    """
-    def decorator(func):
-        @wraps(func)
-        def funk(request, *args, **kwargs):
-            data = func(request, *args, **kwargs)
-            if data is None:
-                return redirect(default)
-            return redirect(data)
-        return funk
-    return decorator
 
 def default_kwargs(**defaults):
     def wrap(func):
@@ -187,19 +196,50 @@ def default_kwargs(**defaults):
         return funk
     return wrap
 
+
+# The following two decorators are very similar,
+# probably one should get the shaft.
+
+def redirects_to(default=None):
+    """
+    Returns a (redirect) response based on decorated function's return value.
+    When decorated function returns:
+    - a HttpResponse, return it in stead of the redirect
+    - a value, redirect to it
+    - None, redirect to given default
+    """
+    def decorator(func):
+        @wraps(func)
+        def funk(request, *args, **kwargs):
+            response = func(request, *args, **kwargs)
+            if isinstance(response, HttpResponse):
+                return response
+            elif response is None:
+                return redirect(default)
+            return redirect(response)
+        return funk
+    return decorator
+
+
 def redirector(default='/'):
     """
-    If decorated function returns a url, redirect to it.
-    If decorated function returns None, use the 'next' GET paramater as
-    redirect url if it is present, else redirect to the given default url.
+    Returns a (redirect) response based on decorated function's return value.
+    When decorated function returns:
+    - a HttpRequest, return it in stead
+    - a url, redirect to it
+    - None and GET has a 'next', redirect to that
+    else redirect to the given default url
     """
     def wrap(func):
         @wraps(func)
         def funk(request):
-            ret = func(request)
-            if ret is not None:
-                return ret
-            redirect_url = request.GET.get('next', default)
+            response = func(request)
+            if isinstance(response, HttpResponse):
+                return response
+            elif response is not None:
+                redirect_url = response
+            else
+                redirect_url = request.GET.get('next', default)
             return HttpResponseRedirect(redirect_url)
         return funk
     return wrap
