@@ -108,7 +108,7 @@ def created_receiver(model, **kwargs):
     return wrap
 
 
-def require_key(container, key, message):
+def require_key(container, key):
     """
     Require a key from a container on the request object and pass it as
     a keyword argument to the decorated function.
@@ -133,7 +133,7 @@ def require_session(*a, **kw):
     return require_key('session', *a, **kw)
 
 
-def default_key(field, key, default=None):
+def default_key(container, key, default=None):
     """
     Provide a key from a container on the request object and pass it as a
     keyword argument to decorated function. If the key is missing, pass the
@@ -142,21 +142,21 @@ def default_key(field, key, default=None):
     def wrap(func):
         @wraps(func)
         def funk(request, *args, **kwargs):
-            kwargs[key] = getattr(request, field, {}).get(key, default)
+            kwargs[key] = getattr(request, container, {}).get(key, default)
             return func(request, *args, **kwargs)
         return funk
     return wrap
 
 def default_meta(*a, **kw):
-    return require_key('META', *a, **kw)
+    return default_key('META', *a, **kw)
 def default_get(*a, **kw):
-    return require_key('GET', *a, **kw)
+    return default_key('GET', *a, **kw)
 def default_post(*a, **kw):
-    return require_key('POST', *a, **kw)
+    return default_key('POST', *a, **kw)
 def default_request(*a, **kw):
-    return require_key('REQUEST', *a, **kw)
+    return default_key('REQUEST', *a, **kw)
 def default_session(*a, **kw):
-    return require_key('session', *a, **kw)
+    return default_key('session', *a, **kw)
 
 
 
@@ -176,11 +176,13 @@ def renders_to(template=None):
 
             if isinstance(data, HttpResponse):
                 return data
-            if not hasattr(data, 'get'):
+            elif not hasattr(data, 'get'):
                 try:
                     data, _template = data
                 except TypeError:
                     _template = template
+            else:
+                _template = template
             return render_to_response(_template, data, RequestContext(request))
         return funk
     return wrap
@@ -238,7 +240,7 @@ def redirector(default='/'):
                 return response
             elif response is not None:
                 redirect_url = response
-            else
+            else:
                 redirect_url = request.GET.get('next', default)
             return HttpResponseRedirect(redirect_url)
         return funk
