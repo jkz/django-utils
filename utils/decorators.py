@@ -100,8 +100,8 @@ def created_receiver(model, **kwargs):
     """
     def wrap(func):
         from django.db.models.signals import post_save
-        @wraps(func)
         @receiver(post_save, sender=model)
+        @wraps(func)
         def funk(*args, **named):
             if named.pop('created', False):
                 return func(*args, **named)
