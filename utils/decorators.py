@@ -86,6 +86,9 @@ def receiver(*args, **kwargs):
     dispatch_uid and sets weak=False.
     """
     def wrap(func):
+
+        func = shoutout(func)
+
         from django import dispatch
         return dispatch.receiver(
             *args,
@@ -100,8 +103,8 @@ def created_receiver(model, **kwargs):
     """
     def wrap(func):
         from django.db.models.signals import post_save
-        @receiver(post_save, sender=model)
         @wraps(func)
+        @receiver(post_save, sender=model)
         def funk(*args, **named):
             if named.pop('created', False):
                 return func(*args, **named)
