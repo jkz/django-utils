@@ -39,11 +39,11 @@ def shoutout(func):
         global __
         def _p(s):
             print(__ + str(s))
-        _p('%s.%s(' % (func.__module__, func.__name__))
+        _p('{}.{}('.format(func.__module__, func.__name__))
         for arg in args:
-            _p('  %s' % str(arg))
-        for key, val in kwargs.iteritems():
-            _p('  %s=%s' % (str(key), str(val)))
+            _p('  {}'.format(str(arg)))
+        for key, val in kwargs.items():
+            _p('  {}={}'.format(str(key), str(val)))
         _p(')')
         __ += '    '
         try:
@@ -52,7 +52,7 @@ def shoutout(func):
             _p(e)
             raise e
         __ = __[:-4]
-        _p('return %s.%s: %s' % (func.__module__, func.__name__, ret))
+        _p('return {}.{}: {}'.format(func.__module__, func.__name__, ret))
         return ret
     return _func
 
