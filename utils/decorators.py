@@ -108,6 +108,21 @@ def created_receiver(model, **kwargs):
     return wrap
 
 
+def deleted_receiver(model, **kwargs):
+    """
+    Connect to a pre_delete_signal only if an object was created
+    """
+    def wrap(func):
+        from django.db.models.signals import pre_delete
+        @wraps(func)
+        @receiver(pre_delete, sender=model)
+        def funk(*args, **named):
+            if named.pop('created', False):
+                return func(*args, **named)
+    return wrap
+
+
+
 def require_key(container, key):
     """
     Require a key from a container on the request object and pass it as
